@@ -31,6 +31,7 @@ install.packages("coin")
 install.packages("qqman")
 install.packages("devtools")
 install.packages("seqMeta")
+install.packages("SKAT")
 
 #패키지 및 데이터 불러오기
 
@@ -38,8 +39,9 @@ library(SNPassoc)
 library(coin)
 library(qqman)
 data(SNPs)
-library(seqMeta)
-data(seqMetaExample)
+library(SKAT)
+#library(seqMeta)
+#data(seqMetaExample)
 
 #1. Statistical tests for association
 
@@ -72,9 +74,7 @@ SNPs[1:10, 1:10]
 datSNP <- setupSNP(SNPs,6:40,sep="")
 xtabs(~ casco + snp10001, data=datSNP)
 
-independence_test(casco~snp10001, data=datSNP, teststat="quad", scores=list(snp10001=c
-
-(0,1,2)))
+independence_test(casco~snp10001, data=datSNP, teststat="quad", scores=list(snp10001=c(0,1,2)))
 
 #4) Regression Methods
 
@@ -162,6 +162,120 @@ out.skat[ order(out.skat$p), ]
 out.skat <- skatOMeta(cohort1, cohort2, SNPInfo = SNPInfo)
 
 out.skat[ order(out.skat$p), ]
+
+##########use SKAT package########
+
+library(SKAT)
+data(SKAT.example)
+names(SKAT.example)
+attach(SKAT.example)
+
+##continuous trait
+obj <- SKAT_Null_Model(y.c ~X, out_type = "C")
+out.c <- SKAT(Z, obj)
+out.c$p.value
+
+##dichotomous trait
+obj <- SKAT_Null_Model(y.b ~X, out_type = "D")
+out.b <- SKAT(Z, obj)
+out.b$p.value
+
+
+out.c$param
+
+out.c$test.snp.ma
+
+IDX<-c(1:100,1001:1100)
+# With-adjustment
+obj.s<-SKAT_Null_Model(y.b[IDX] ~ X[IDX,],out_type="D")
+
+SKAT(Z[IDX,], obj.s, kernel = "linear.weighted")$p.value
+
+#if you don’t want to use the adjustment, please set Adjustment=FALSE in the SKAT_Null_Model
+function.
+# Without-adjustment
+
+obj.s<-SKAT_Null_Model(y.b[IDX] ~ X[IDX,],out_type="D", Adjustment=FALSE)
+SKAT(Z[IDX,], obj.s, kernel = "linear.weighted")$p.value
+
+# default hybrid approach
+out<-SKATBinary(Z[IDX,], obj.s, kernel = "linear.weighted")
+out$p.value
+# Robust approach
+out<-SKATBinary_Robust(Z[IDX,], obj.s, kernel = "linear.weighted")
+out$p.value
+
+2.1 Assign weights for each SNP
+
+SKAT(Z, obj, kernel = "linear.weighted", weights.beta=c(0.5,0.5))$p.value
+
+# Shape of the logistic weight
+
+MAF<-1:1000/1000
+W<-Get_Logistic_Weights_MAF(MAF, par1=0.07, par2=150)
+par(mfrow=c(1,2))
+plot(MAF,W,xlab="MAF",ylab="Weights",type="l")
+plot(MAF[1:100],W[1:100],xlab="MAF",ylab="Weights",type="l")
+par(mfrow=c(1,2))
+# Use logistic weight
+weights<-Get_Logistic_Weights(Z, par1=0.07, par2=150)
+SKAT(Z, obj, kernel = "linear.weighted", weights=weights)$p.value
+
+
+2.2 SKAT-O: Combined Test of burden test and SKAT
+
+#rho=0, SKAT
+SKAT(Z, obj, r.corr=0)$p.value
+
+#rho=0.9
+SKAT(Z, obj, r.corr=0.9)$p.value
+
+#rho=1, Burden test
+SKAT(Z, obj, r.corr=1)$p.value
+
+#Optimal Test
+SKAT(Z, obj, method="SKATO")$p.value
+
+2.3 Combined test of common and rare variants
+
+# Combined sum test (SKAT-C and Burden-C)
+
+SKAT_CommonRare(Z, obj)$p.value
+
+SKAT_CommonRare(Z, obj, r.corr.rare=1, r.corr.common=1 )$p.value
+
+# Adaptive test (SKAT-A and Burden-A)
+
+SKAT_CommonRare(Z, obj, method="A")$p.value
+
+SKAT_CommonRare(Z, obj, r.corr.rare=1, r.corr.common=1, method="A" )$p.value
+
+
+2.4 Impute missing genotypes.
+
+# Assign missing
+Z1<-Z
+Z1[1,1:3]<-NA
+# bestguess imputation
+SKAT(Z1,obj,impute.method = "bestguess")$p.value
+
+# fixed imputation
+SKAT(Z1,obj,impute.method = "fixed")$p.value
+
+# random imputation
+SKAT(Z1,obj,impute.method = "random")$p.value
+
+
+2.5 Resampling
+
+# parametric boostrap.
+obj<-SKAT_Null_Model(y.b ~ X, out_type="D", n.Resampling=5000,
++ type.Resampling="bootstrap")
+# SKAT p-value
+re<- SKAT(Z, obj, kernel = "linear.weighted")
+re$p.value # SKAT p-value
+
+
 ##############################################
 #additional burden test
 
