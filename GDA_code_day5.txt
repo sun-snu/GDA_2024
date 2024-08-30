@@ -1,0 +1,221 @@
+
+1. Statistical tests
+
+
+################# Virtual box 에서 R 사용하기#############
+source activate lecture2
+R
+################## R STUDIO 단축키######################
+
+# 1. 코드실행
+# ctrl + enter
+# 2.  소스 저장
+# ctrl + s
+# 3. command 창 지우기
+# Ctrl+L
+# 4.  주석 처리/해제
+# 해당 라인에 커서를 두고 ctrl + shift + c
+# 5. 함수 또는 R 소스파일의 내용보기
+# 확인하려는 함수 또는 R 소스파일에 커서를 올리고 F2
+# 6. 실행중인 명령어 중지
+# ESC
+# 7. 이전 실행 명령어 창에 띄우기
+# UP / DOWN
+# 8. 이전 실행 명령어 확인
+# CTRL + UP
+
+#################### 패키지 설치##########################
+
+install.packages("SNPassoc")
+install.packages("coin")
+install.packages("qqman")
+install.packages("devtools")
+install.packages("seqMeta")
+
+#패키지 및 데이터 불러오기
+
+library(SNPassoc)
+library(coin)
+library(qqman)
+data(SNPs)
+library(seqMeta)
+data(seqMetaExample)
+
+#1. Statistical tests for association
+
+#1) Fisher's Exact Test
+
+contig <- matrix(c(12, 10, 26, 66), nrow=2)
+fisher.test(contig)
+
+contig <- matrix(c(6, 5, 23, 23), nrow=2)
+fisher.test(contig)
+
+contig <- matrix(c(6, 5, 3, 43), nrow=2)
+fisher.test(contig)
+
+#2) Chi-square Test
+
+contig <- matrix(c(6, 5, 3, 43), nrow=2)
+chisq.test(contig)
+
+contig <- matrix(c(6, 5, 23, 23), nrow=2)
+chisq.test(contig)
+
+#3) Cochran-Armitage Trend Test (CATT)
+
+library(SNPassoc)
+library(coin)
+data(SNPs)
+SNPs[1:10, 1:10]
+
+datSNP <- setupSNP(SNPs,6:40,sep="")
+xtabs(~ casco + snp10001, data=datSNP)
+
+independence_test(casco~snp10001, data=datSNP, teststat="quad", scores=list(snp10001=c
+
+(0,1,2)))
+
+#4) Regression Methods
+
+additive(datSNP$snp10001)
+
+res <- lm( blood.pre ~ additive(snp10001), data=datSNP)
+summary(res)
+
+x <- seq(-3, 3, by=0.2)
+alpha = 1.1
+beta = 1.5
+y = exp(alpha + beta*x) / (1 + exp(alpha + beta*x))
+plot(x,y, type="b")
+
+res <- glm(casco ~ additive(snp10001), data=datSNP, family=binomial(link='logit'))
+summary(res)
+
+exp(coef(res))
+
+x <- seq(-3, 3, by=0.2)
+alpha = 1.1
+beta = 1.5
+y = exp(alpha + beta*x) / (1 + exp(alpha + beta*x))
+plot(x,y, type="b")
+
+#5) Hardy-Weignberg Equilibrium (HWE) Test
+
+library(SNPassoc)
+data(SNPs)
+pre_SNPs<-snp(SNPs$snp10005,sep="")
+summary(pre_SNPs)
+
+plot(pre_SNPs, label="snp10005", col="red")
+
+myData<-setupSNP(data=SNPs,colSNPs=6:40,sep="")
+res<-tableHWE(myData)
+head(res, n=10)
+
+SNPs[,8]
+
+res<-tableHWE(myData,strata=myData$sex)
+head(res, n=10)
+
+#6) MANHATTAN plot for GWAS result
+
+library(qqman)
+head(gwasResults, n=6)
+
+manhattan(gwasResults, main = "Manhattan Plot", cex = 0.5, cex.axis = 0.8, col = c("blue4", 
+
+"orange3"))
+
+#2.  Rare variant association tests​
+
+#1) Burden test
+
+install.packages("seqMeta")
+library(seqMeta)
+data(seqMetaExample)
+head(Z1)
+head(Z2)
+head(pheno1)
+head(pheno2)
+head(SNPInfo)
+
+cohort1 <- prepScores(Z=Z1, y~1, SNPInfo=SNPInfo, data=pheno1)
+cohort2 <- prepScores(Z=Z2, y~1, SNPInfo=SNPInfo, data=pheno2)
+out <- burdenMeta(cohort1, cohort2, SNPInfo = SNPInfo,
+          mafRange=c(0, 0.01))
+out$p
+
+#2) SKAT test
+
+cohort1 <- prepScores(Z=Z1, y~sex+bmi, SNPInfo = SNPInfo,
+               data =pheno1)
+
+cohort2 <- prepScores(Z=Z2, y~sex+bmi, SNPInfo = SNPInfo,
+               kins=kins, data=pheno2)
+
+out.skat <- skatMeta(cohort1, cohort2, SNPInfo = SNPInfo)
+out.skat[ order(out.skat$p), ]
+
+#3) SKAT-O test
+
+out.skat <- skatOMeta(cohort1, cohort2, SNPInfo = SNPInfo)
+
+out.skat[ order(out.skat$p), ]
+##############################################
+#additional burden test
+
+tabix -p vcf data/1000G_exome_chr20_example_softFiltered.calls.vcf.gz
+
+epacts single --vcf data/1000G_exome_chr20_example_softFiltered.calls.vcf.gz --ped data/1000G_dummy_pheno.ped --min-maf 0.001 --chr 20 --pheno DISEASE --cov AGE --cov SEX --test b.score --anno --out out/test.single.b.score --run
+
+zcat out/test.single.b.score.epacts.gz |head
+head out/test.single.b.score.epacts.top5000^C
+
+epacts anno --in data/1000G_exome_chr20_example_softFiltered.calls.vcf.gz --out data/1000G_exome_chr20_example_softFiltered.calls.anno.vcf.gz
+
+epacts group --vcf data/1000G_exome_chr20_example_softFiltered.calls.anno.vcf.gz --groupf data/1000G_exome_chr20_example_softFiltered.calls.anno.grp --out out/test.gene.skat --ped data/1000G_dummy_pheno.ped --max-maf 0.05 --sepchr 20 --pheno QT --cov AGE --cov SEX --test skat --skat-o --run 2
+
+head out/test.gene.skat.epacts.top5000
+
+###############################################
+2. LD calculation based on 1000 Genomes data
+
+cd vcf
+ls
+vcftools --gzvcf JPT_part.vcf.gz --plink-tped --out JPT --phased
+ls
+more JPT.tped
+more JPT.tfam
+plink --tped JPT.tped --tfam JPT.tfam --make-bed --out ./JPT --noweb
+head JPT.bim 
+head JPT.fam 
+head JPT.nosex 
+plink --noweb --bfile JPT --ld rs11646260 rs59578934
+plink --noweb --bfile JPT --ld rs11646260 rs8063575
+plink --bfile JPT --chr 16 --from-bp 54000000 --to-bp 54050000 --ld-snp rs11646260 --r2 --ld-window-r2 0 --ld-window 999999 --ld-window-kb 99999 --noweb --out ./JPT
+ls
+head JPT.ld 
+cd ..
+cd plot
+ls
+R
+
+
+###############################################
+3. HLA alleles, HLA amino acids, SNPs imputation
+
+
+cd ..
+cd snp2hla
+ls
+./SNP2HLA.csh 1958BC HM_CEU_REF 1958BC_IMPUTED plink 2000 1000
+ls
+head 1958BC_IMPUTED.bim
+head 1958BC_IMPUTED.fam
+head 1958BC_IMPUTED.dosage 
+plink --noweb --dosage 1958BC_IMPUTED.dosage noheader format=1 --fam 1958BC_IMPUTED.fam --logistic --out 1958_IMPUTED
+more 1958BC_IMPUTED.assoc.dosage 
+
+
+
